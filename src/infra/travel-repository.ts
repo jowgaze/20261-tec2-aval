@@ -1,0 +1,54 @@
+import { Pool } from "pg";
+import type { TravelRequestInput, TravelRequestOutput } from "../domain/travel-request.js";
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required");
+}
+
+const pool = new Pool({ connectionString: databaseUrl });
+
+export async function saveTravelRequest(
+  input: TravelRequestInput,
+  output: TravelRequestOutput,
+): Promise<void> {
+  await pool.query(
+    `
+      INSERT INTO travel_requests (
+        id,
+        requester_name,
+        requester_type,
+        destination,
+        departure_date,
+        return_date,
+        reason,
+        status,
+        travel_days,
+        daily_amount_in_cents,
+        subtotal_in_cents,
+        transport_cost_in_cents,
+        total_amount_in_cents,
+        created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+      )
+    `,
+    [
+      input.requestId,
+      input.requesterName,
+      input.requesterType,
+      input.destination,
+      input.departureDate,
+      input.returnDate,
+      input.reason,
+      output.status,
+      output.travelDays,
+      output.dailyAmountInCents,
+      output.subtotalInCents,
+      input.transportCostInCents,
+      output.totalAmountInCents,
+      new Date().toISOString(),
+    ],
+  );
+}
