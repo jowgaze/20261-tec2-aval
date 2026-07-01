@@ -1,19 +1,29 @@
 import { Pool } from "pg";
 import type { TravelRequestInput, TravelRequestOutput } from "../domain/travel-request.js";
 
-const databaseUrl = process.env.DATABASE_URL;
+let pool: Pool | undefined;
 
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
+function getPool(): Pool {
+  if (pool) {
+    return pool;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required");
+  }
+
+  pool = new Pool({ connectionString: databaseUrl });
+
+  return pool;
 }
-
-const pool = new Pool({ connectionString: databaseUrl });
 
 export async function saveTravelRequest(
   input: TravelRequestInput,
   output: TravelRequestOutput,
 ): Promise<void> {
-  await pool.query(
+  await getPool().query(
     `
       INSERT INTO travel_requests (
         id,

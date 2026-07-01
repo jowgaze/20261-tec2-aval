@@ -1,27 +1,17 @@
-export type RequesterType = "student" | "employee" | "professor" | "manager";
+import { processTravelUseCase } from "./application/travel-use-case.js";
+import type {
+  TravelRequestInput as DomainTravelRequestInput,
+  TravelRequestOutput as DomainTravelRequestOutput,
+} from "./domain/travel-request.js";
 
-export type TravelRequestStatus = "approved" | "pending-review" | "rejected";
+export type TravelRequestInput = DomainTravelRequestInput;
 
-export type TravelRequestInput = {
-  requestId: string;
-  requesterName: string;
-  requesterType: RequesterType;
-  destination: string;
-  departureDate: string;
-  returnDate: string;
-  reason: string;
-  transportCostInCents: number;
-};
+export type TravelRequestOutput = DomainTravelRequestOutput;
 
-export type TravelRequestOutput = {
-  requestId: string;
-  status: TravelRequestStatus;
-  travelDays: number;
-  dailyAmountInCents: number;
-  subtotalInCents: number;
-  totalAmountInCents: number;
-  errors: string[];
-  warnings: string[];
-};
+export type RequesterType = TravelRequestInput["requesterType"];
 
-export { processTravelRequest } from "./original/process-travel-request.js";
+export type TravelRequestStatus = TravelRequestOutput["status"];
+
+export function processTravelRequest(input: TravelRequestInput): TravelRequestOutput {
+  return processTravelUseCase(input);
+}
