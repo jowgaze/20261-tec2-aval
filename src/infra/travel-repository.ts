@@ -62,3 +62,16 @@ export async function saveTravelRequest(
     ],
   );
 }
+
+export async function getTravelRequest(requestId: string): Promise<any | null> {
+  const result = await getPool().query(
+    `SELECT * FROM travel_requests WHERE id = $1`,
+    [requestId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return result.rows[0];
+}
