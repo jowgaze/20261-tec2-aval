@@ -20,10 +20,18 @@ export type TravelRequestOutput = {
   warnings: string[];
 };
 
+const DAILY_ALLOWANCES: Record<TravelRequestInput["requesterType"], number> = {
+  student: 9000,
+  employee: 18000,
+  professor: 25000,
+  manager: 30000,
+};
+
+const MS_PER_DAY = 86_400_000;
+const REVIEW_THRESHOLD_IN_CENTS = 200_000;
+
 function isValidYYYYMMDDDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
 
   const [yearText, monthText, dayText] = value.split("-");
   const year = Number(yearText);
@@ -40,52 +48,19 @@ function isValidYYYYMMDDDate(value: string): boolean {
 
 function getUtcDayTimestamp(value: string): number {
   const [yearText, monthText, dayText] = value.split("-");
-
   return Date.UTC(Number(yearText), Number(monthText) - 1, Number(dayText));
-}
-
-function getDailyAmountInCents(requesterType: TravelRequestInput["requesterType"]): number {
-  switch (requesterType) {
-    case "student":
-      return 9000;
-    case "employee":
-      return 18000;
-    case "professor":
-      return 25000;
-    case "manager":
-      return 30000;
-  }
 }
 
 export function analyzeTravelRequest(input: TravelRequestInput): TravelRequestOutput {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  if (!input.requestId) {
-    errors.push("requestId is required");
-  }
-
-  if (!input.requesterName) {
-    errors.push("requesterName is required");
-  }
-
-  if (!input.requesterType) {
-    errors.push("requesterType is required");
-  }
-
-  if (!input.destination) {
-    errors.push("destination is required");
-  }
-
-  if (!input.departureDate) {
-    errors.push("departureDate is required");
-  }
-
-  if (!input.returnDate) {
-    errors.push("returnDate is required");
-  }
-
-  let travelDays = 0;
+  if (!input.requestId) errors.push("requestId is required");
+  if (!input.requesterName) errors.push("requesterName is required");
+  if (!input.requesterType) errors.push("requesterType is required");
+  if (!input.destination) errors.push("destination is required");
+  if (!input.departureDate) errors.push("departureDate is required");
+  if (!input.returnDate) errors.push("returnDate is required");
 
   const hasValidDepartureDate = Boolean(input.departureDate) && isValidYYYYMMDDDate(input.departureDate);
   const hasValidReturnDate = Boolean(input.returnDate) && isValidYYYYMMDDDate(input.returnDate);
@@ -93,23 +68,37 @@ export function analyzeTravelRequest(input: TravelRequestInput): TravelRequestOu
   if (input.departureDate && !hasValidDepartureDate) {
     errors.push("departureDate must be a valid YYYY-MM-DD date");
   }
-
   if (input.returnDate && !hasValidReturnDate) {
     errors.push("returnDate must be a valid YYYY-MM-DD date");
   }
 
+  let departureTimestamp = 0;
+  let returnTimestamp = 0;
+
   if (hasValidDepartureDate && hasValidReturnDate) {
-    const departureTimestamp = getUtcDayTimestamp(input.departureDate);
-    const returnTimestamp = getUtcDayTimestamp(input.returnDate);
+    departureTimestamp = getUtcDayTimestamp(input.departureDate);
+    returnTimestamp = getUtcDayTimestamp(input.returnDate);
 
     if (returnTimestamp < departureTimestamp) {
       errors.push("returnDate cannot be before departureDate");
-    } else {
-      travelDays = Math.floor((returnTimestamp - departureTimestamp) / 86_400_000) + 1;
     }
   }
 
-  const dailyAmountInCents = getDailyAmountInCents(input.requesterType);
+  if (errors.length > 0) {
+    return {
+      requestId: input.requestId || "",
+      status: "rejected",
+      travelDays: 0,
+      dailyAmountInCents: 0,
+      subtotalInCents: 0,
+      totalAmountInCents: 0,
+      errors,
+      warnings,
+    };
+  }
+
+  const travelDays = Math.floor((returnTimestamp - departureTimestamp) / MS_PER_DAY) + 1;
+  const dailyAmountInCents = DAILY_ALLOWANCES[input.requesterType];
   const subtotalInCents = travelDays * dailyAmountInCents;
   const totalAmountInCents = subtotalInCents + input.transportCostInCents;
 
@@ -117,11 +106,10 @@ export function analyzeTravelRequest(input: TravelRequestInput): TravelRequestOu
     warnings.push("long travel requests should include a detailed reason");
   }
 
-  const status = errors.length > 0
-    ? "rejected"
-    : travelDays > 5 || totalAmountInCents > 200_000
-      ? "pending-review"
-      : "approved";
+  let status: TravelRequestOutput["status"] = "approved";
+  if (travelDays > 5 || totalAmountInCents > REVIEW_THRESHOLD_IN_CENTS) {
+    status = "pending-review";
+  }
 
   return {
     requestId: input.requestId,

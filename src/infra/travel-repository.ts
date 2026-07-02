@@ -64,7 +64,7 @@ export async function saveTravelRequest(
   );
 }
 
-export async function getTravelRequest(requestId: string): Promise<any | null> {
+export async function getTravelRequest(requestId: string): Promise<Record<string, unknown> | null> {
   const result = await getPool().query(
     `SELECT * FROM travel_requests WHERE id = $1`,
     [requestId]
