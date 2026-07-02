@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import 'dotenv/config';
 import type { TravelRequestInput, TravelRequestOutput } from "../domain/travel-request.js";
 
 let pool: Pool | undefined;
